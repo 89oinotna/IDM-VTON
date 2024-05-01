@@ -26,7 +26,7 @@ label_map = {
 def extend_arm_mask(wrist, elbow, scale):
   wrist = elbow + scale * (wrist - elbow)
   return wrist
-
+# Complex background segmentation is prone to error, and filling holes will introduce more errors
 def hole_fill(img):
     img = np.pad(img[1:-1, 1:-1], pad_width = 1, mode = 'constant', constant_values=0)
     img_copy = img.copy()
