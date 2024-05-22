@@ -456,7 +456,7 @@ class StableDiffusionXLInpaintPipeline(
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.encode_image
     def encode_image(self, image, device, num_images_per_prompt, output_hidden_states=None):
         dtype = next(self.image_encoder.parameters()).dtype
-        # print(image.shape)
+        print(image.shape)
         if not isinstance(image, torch.Tensor):
             image = self.feature_extractor(image, return_tensors="pt").pixel_values
 
@@ -489,6 +489,7 @@ class StableDiffusionXLInpaintPipeline(
         #     )
         output_hidden_state = not isinstance(self.unet.encoder_hid_proj, ImageProjection)
         # print(output_hidden_state)
+        print(ip_adapter_image.shape)
         image_embeds, negative_image_embeds = self.encode_image(
             ip_adapter_image, device, 1, output_hidden_state
         )
@@ -907,10 +908,12 @@ class StableDiffusionXLInpaintPipeline(
 
     def _encode_vae_image(self, image: torch.Tensor, generator: torch.Generator):
         dtype = image.dtype
+        print(dtype)
+        
         if self.vae.config.force_upcast:
             image = image.float()
             self.vae.to(dtype=torch.float32)
-
+        
         if isinstance(generator, list):
             image_latents = [
                 retrieve_latents(self.vae.encode(image[i : i + 1]), generator=generator[i])
@@ -1781,7 +1784,9 @@ class StableDiffusionXLInpaintPipeline(
                 if ip_adapter_image is not None:
                     added_cond_kwargs["image_embeds"] = image_embeds
                 # down,reference_features = self.UNet_Encoder(cloth,t, text_embeds_cloth,added_cond_kwargs= {"text_embeds": pooled_prompt_embeds_c, "time_ids": add_time_ids},return_dict=False)
+                print(cloth.device,t.device,text_embeds_cloth.device) 
                 down,reference_features = self.unet_encoder(cloth,t, text_embeds_cloth,return_dict=False)
+                print(f'{i},'*10)
                 # print(type(reference_features))
                 # print(reference_features)
                 reference_features = list(reference_features)
