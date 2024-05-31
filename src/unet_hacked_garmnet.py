@@ -1052,6 +1052,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
         # `Timesteps` does not contain any weights and will always return f32 tensors
         # but time_embedding might actually be running in fp16. so we need to cast here.
         # there might be better ways to encapsulate this.
+
         t_emb = t_emb.to(dtype=sample.dtype)#.to('cpu')
         print(t_emb.device)
         print(next(self.time_embedding.parameters()).device)
@@ -1060,6 +1061,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
                 
         #if timestep_cond is not None and timestep_cond.device != t_emb.device:
         #    timestep_cond = timestep_cond.to(t_emb.device)
+
 
         emb = self.time_embedding(t_emb, timestep_cond)
         aug_emb = None
