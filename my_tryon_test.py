@@ -53,7 +53,7 @@ class TryOn():
             ]
         )
         self.toTensor = transforms.ToTensor()
-        self.model_path = "/root/kj_work/IDM-VTON/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/"
+        self.model_path = "/root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/"
         #/root/kj_work/IDM-VTON/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/
 
         self.vae = AutoencoderKL.from_pretrained(
@@ -186,16 +186,60 @@ class TryOn():
         return image[0][0]
 
 if __name__ == "__main__":
+    img_o = Image.open('my_pre_data/img/img1.jpg')
+
+    from preprocess.openpose.run_openpose import OpenPose
+    model = OpenPose(0)
+    # keypoints=model('/root/kj_work/IDM-VTON/my_pre_data/img/img1.jpg')
+    keypoints=model(img_o.copy())
+    print(keypoints)
+
+    from preprocess.humanparsing.run_parsing import Parsing
+    p = Parsing(0)
+    # img, mask,parsed = p('/root/kj_work/IDM-VTON/my_pre_data/img')
+    img, mask, parsed = p(img_o.copy())
+    print(parsed.shape)
+
+    from my_get_maks import get_img_agnostic
+    # img = Image.open('my_pre_data/img/img1.jpg')
+    pose_data = np.array(keypoints['pose_keypoints_2d'])
+    # pose_data = pose_data.reshape((1, -1))[0]
+    # print(pose_data)
+    # exit()
+    # pose_data = pose_data.reshape((-1, 2))
+    # print(pose_data)
+    # exit()
+    agnostic = get_img_agnostic(img_o.copy(), parsed, pose_data)
+    agnostic.save('my_pre_data/mask.jpg')
+    # exit()
+
     # print('1'*100)
     TO = TryOn()
     # print(2)
-    p1 = ["model is wearing a long sleeved shirt"]
-    p2 = ["a photo of long sleeved shirt"]
-    img = Image.open('my_tryon_test_data/img.jpg')
-    cloth = Image.open('my_tryon_test_data/cloth2.jpg')
-    mask = Image.open('my_tryon_test_data/mask.png')
-    pose = Image.open('my_tryon_test_data/pose.jpg')
-    new = TO.tryon(p1, p2, pose,  cloth, img, mask)
+    p1 = ["model is wearing a basketball clothes"]# 衣服的种类，由LLM或者数据库给出
+    p2 = ["a photo of basketball clothes"]# 衣服的种类，由LLM或者数据库给出
+    
+    # img = Image.open('my_pre_data/img/img1.jpg')
+    cloth = Image.open('/root/kj_work/IDM-VTON/my_pre_data/cloth/c1.jpg')
+    # mask = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/mask.png')
+
+    from my_get_pose import InferenceAction
+    g_pose = InferenceAction()
+    pose = g_pose.execute(img_o.copy())
+    pose = Image.fromarray(pose)
+    # pose = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/pose.jpg')
+    
+    # print('img:',img.split())
+    # print('cloth:',cloth.split())
+    # print('mask:',mask.split())
+    # print('pose:',pose.split())
+    # exit()
+    new = TO.tryon(p1, p2, pose,  cloth, img_o, agnostic)
     # print(3)
-    new.save('my_tryon_test_data/new.jpg')
+    new.save('my_pre_data/new.jpg')
     # print(4)
+
+
+# python apply_net.py show configs/densepose_rcnn_R_50_FPN_s1x.yaml \
+# /root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/densepose/model_final_162be9.pkl \
+# /root/kj_work/IDM-VTON_old/my_tryon_test_data dp_segm -v

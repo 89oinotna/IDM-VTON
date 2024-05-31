@@ -16,8 +16,8 @@ import time
 import json
 
 # from pytorch_lightning import seed_everything
-from preprocess.openpose.annotator.util import resize_image, HWC3
-from preprocess.openpose.annotator.openpose import OpenposeDetector
+from annotator.util import resize_image, HWC3#preprocess.openpose.
+from annotator.openpose import OpenposeDetector#preprocess.openpose.
 
 import argparse
 from PIL import Image
@@ -64,8 +64,8 @@ class OpenPose:
             candidate = candidate[:18]
 
             for i in range(18):
-                candidate[i][0] *= 384
-                candidate[i][1] *= 512
+                candidate[i][0] *= 384*2
+                candidate[i][1] *= 512*2
 
             keypoints = {"pose_keypoints_2d": candidate}
             # with open("/home/aigc/ProjectVTON/OpenPose/keypoints/keypoints.json", "w") as f:
@@ -73,12 +73,13 @@ class OpenPose:
             #
             # # print(candidate)
             # output_image = cv2.resize(cv2.cvtColor(detected_map, cv2.COLOR_BGR2RGB), (768, 1024))
-            # cv2.imwrite('/home/aigc/ProjectVTON/OpenPose/keypoints/out_pose.jpg', output_image)
+            # cv2.imwrite('/root/kj_work/IDM-VTON/my_pre_data/oppose.jpg', output_image)
 
         return keypoints
 
 
 if __name__ == '__main__':
 
-    model = OpenPose()
-    model('./images/bad_model.jpg')
+    model = OpenPose(0)
+    keypoints=model('/root/kj_work/IDM-VTON/my_pre_data/img.jpg')
+    print(keypoints)

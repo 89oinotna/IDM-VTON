@@ -140,10 +140,20 @@ def onnx_inference(session, lip_session, input_dir):
             logits_result = transform_logits(upsample_output.data.cpu().numpy(), c, s, w, h, input_size=[512, 512])
             parsing_result = np.argmax(logits_result, axis=2)
             parsing_result = np.pad(parsing_result, pad_width=1, mode='constant', constant_values=0)
+            # return parsing_result
+            
+            
             # try holefilling the clothes part
             arm_mask = (parsing_result == 14).astype(np.float32) \
                        + (parsing_result == 15).astype(np.float32)
-            upper_cloth_mask = (parsing_result == 4).astype(np.float32) + arm_mask
+            upper_cloth_mask = (parsing_result == 4).astype(np.float32) + arm_mask 
+            # for i in range(20):
+            #     mimg = (parsing_result == i).astype(np.float32)
+            #     mimg = np.where(mimg, 255, 0)
+            #     mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
+            #     mimg.save(f'/root/kj_work/IDM-VTON/my_pre_data/p{i}.png')
+            
+            # exit()
             img = np.where(upper_cloth_mask, 255, 0)
             dst = hole_fill(img.astype(np.uint8))
             parsing_result_filled = dst / 255 * 4
@@ -154,7 +164,8 @@ def onnx_inference(session, lip_session, input_dir):
             parsing_result = np.where(refine_hole_mask, parsing_result, parsing_result_woarm)
             # remove padding
             parsing_result = parsing_result[1:-1, 1:-1]
-
+            
+           
         dataset_lip = SimpleFolderDataset(root=input_dir, input_size=[473, 473], transform=transform)
         dataloader_lip = DataLoader(dataset_lip)
         with torch.no_grad():
@@ -181,8 +192,13 @@ def onnx_inference(session, lip_session, input_dir):
     output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
     output_img.putpalette(palette)
     face_mask = torch.from_numpy((parsing_result == 11).astype(np.float32))
+    for i in range(20):
+        mimg = (parsing_result == i).astype(np.float32)
+        mimg = np.where(mimg, 255, 0)
+        mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
+        mimg.save(f'/root/kj_work/IDM-VTON/my_pre_data/p{i}.png')
 
-    return output_img, face_mask
+    return output_img, face_mask,parsing_result
 
 
 
