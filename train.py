@@ -28,13 +28,14 @@ from src.unet_hacked_tryon import UNet2DConditionModel
 from src.unet_hacked_garmnet import UNet2DConditionModel as UNet2DConditionModel_ref
 from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as TryonPipeline
 import wandb
+
 wandb.login(key='6b9529ffc8d1630ecad71718647e2e14c98bf360')
 
 weight_dtype = torch.float16
 
 logger = get_logger(__name__, log_level="INFO")
 
-wandb.init(project="Ayna")
+wandb.init(project="Ayna-Finetune")
 
 
 def parse_args():
@@ -44,9 +45,9 @@ def parse_args():
     parser.add_argument("--height", type=int, default=512)
     parser.add_argument("--num_inference_steps", type=int, default=30)
     parser.add_argument("--output_dir", type=str, default="result")
-    parser.add_argument("--data_dir", type=str, default="/notebooks/ayna/working_repo/IDM-VTON/dataset")
+    parser.add_argument("--data_dir", type=str, default="/notebooks/ayna/working_repo/IDM-VTON/dataset/deepfashion_dataset")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=24)
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--save_interval", type=int, default=50)
@@ -73,7 +74,7 @@ class VitonHDTestDataset(data.Dataset):
         self.transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
         self.toTensor = transforms.ToTensor()
 
-        with open(os.path.join(dataroot_path, phase, "vitonhd_" + phase + "_tagged.json"), "r") as file1:
+        with open(os.path.join(dataroot_path, phase, "deepfashion_" + phase + "_tagged.json"), "r") as file1:
             data1 = json.load(file1)
 
         annotation_list = ["sleeveLength", "neckLine", "item"]
@@ -130,7 +131,7 @@ class VitonHDTestDataset(data.Dataset):
             cloth_annotation = "shirts"
         cloth = Image.open(os.path.join(self.dataroot, self.phase, "cloth", c_name))
 
-        im_pil_big = Image.open(os.path.join(self.dataroot, self.phase, "image", im_name)).resize((self.width, self.height))
+        im_pil_big = Image.open(os.path.join(self.dataroot, self.phase, "images", im_name)).resize((self.width, self.height))
         image = self.transform(im_pil_big)
 
         mask = Image.open(os.path.join(self.dataroot, self.phase, "agnostic-mask", im_name.replace('.jpg','_mask.png'))).resize((self.width, self.height))
@@ -152,6 +153,9 @@ class VitonHDTestDataset(data.Dataset):
         result["im_mask"] = im_mask
         result["caption_cloth"] = "a photo of " + cloth_annotation
         result["caption"] = "model is wearing a " + cloth_annotation
+        
+        resize_transform = transforms.Resize((1024, 768))
+        pose_img_resized = resize_transform(pose_img.unsqueeze(0)).squeeze(0)
         result["pose_img"] = pose_img
 
         return result
@@ -191,6 +195,11 @@ def train(args, train_dataloader, model, unet, image_encoder, optimizer, acceler
                     prompt, num_images_per_prompt=1, do_classifier_free_guidance=False)[0]
 
                 generator = torch.Generator(model.device).manual_seed(args.seed) if args.seed is not None else None
+                
+                target_size = batch['image'].shape[2:]
+                batch['pose_img_resized'] = F.interpolate(batch['pose_img'], size=target_size, mode='bilinear', align_corners=False)
+                batch['cloth_pure_resized'] = F.interpolate(batch['cloth_pure'], size=target_size, mode='bilinear', align_corners=False)
+
                 images = model(
                     prompt_embeds=prompt_embeds,
                     negative_prompt_embeds=negative_prompt_embeds,
@@ -199,39 +208,19 @@ def train(args, train_dataloader, model, unet, image_encoder, optimizer, acceler
                     num_inference_steps=args.num_inference_steps,
                     generator=generator,
                     strength=1.0,
-                    pose_img=batch['pose_img'].to(accelerator.device, dtype=weight_dtype),  # Ensure pose_img is cast to weight_dtype
+                    pose_img=batch['pose_img_resized'].to(accelerator.device, dtype=weight_dtype),
                     text_embeds_cloth=prompt_embeds_c,
-                    cloth=batch["cloth_pure"].to(accelerator.device, dtype=weight_dtype),  # Ensure cloth is cast to weight_dtype
-                    mask_image=batch['inpaint_mask'].to(accelerator.device, dtype=weight_dtype),  # Ensure inpaint_mask is cast to weight_dtype
-                    image=(batch['image'].to(accelerator.device, dtype=weight_dtype) + 1.0) / 2.0,  # Ensure image is cast to weight_dtype
+                    cloth=batch["cloth_pure_resized"].to(accelerator.device, dtype=weight_dtype),
+                    mask_image=batch['inpaint_mask'].to(accelerator.device, dtype=weight_dtype),
+                    image=(batch['image'].to(accelerator.device, dtype=weight_dtype) + 1.0) / 2.0,
                     height=args.height,
                     width=args.width,
                     guidance_scale=args.guidance_scale,
-                    ip_adapter_image=image_embeds.to(accelerator.device, dtype=weight_dtype)  # Ensure ip_adapter_image is cast to weight_dtype
+                    ip_adapter_image=image_embeds.to(accelerator.device, dtype=weight_dtype)
                 )[0]
 
-                # Ensure model output requires grad
                 images_tensor = torch.stack([transforms.ToTensor()(img).to(accelerator.device) for img in images]).requires_grad_()
-
-                # Ensure batch['image'] is also on the same device
                 batch_image_tensor = batch['image'].to(accelerator.device)
-                
-                # print("image tensor shape: ", images_tensor.shape)
-                # print("batch tensor shape: ", batch_image_tensor.shape)
-                
-                # Convert tensors to PIL images and save them as .jpg files
-                # to_pil = transforms.ToPILImage()
-
-                # def save_images(tensor, prefix):
-                #     tensor = tensor.detach().cpu() 
-                #     for i in range(tensor.size(0)):
-                #         img = to_pil(tensor[i])
-                #         img.save(f"{prefix}_image_{i}.jpg")
-
-                # Save images from images_tensor
-                # save_images(images_tensor, "output_images_tensor")
-                # save_images(batch_image_tensor, "output_batch_image_tensor")
-
                 loss = F.mse_loss(images_tensor, batch_image_tensor)
                 accelerator.backward(loss)
                 optimizer.step()
@@ -246,8 +235,33 @@ def train(args, train_dataloader, model, unet, image_encoder, optimizer, acceler
                         x_sample = transforms.ToTensor()(images[i])
                         torchvision.utils.save_image(x_sample, os.path.join(args.output_dir, f"step_{global_step}_{batch['im_name'][i]}"))
                         print("Images generated!")
+                    # Generate images from the same seed
+                    seed_generator = torch.Generator(model.device).manual_seed(42)  # Use a fixed seed
+                    same_seed_images = model(
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_prompt_embeds,
+                        pooled_prompt_embeds=pooled_prompt_embeds,
+                        negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
+                        num_inference_steps=args.num_inference_steps,
+                        generator=seed_generator,
+                        strength=1.0,
+                        pose_img=batch['pose_img_resized'].to(accelerator.device, dtype=weight_dtype),
+                        text_embeds_cloth=prompt_embeds_c,
+                        cloth=batch["cloth_pure_resized"].to(accelerator.device, dtype=weight_dtype),
+                        mask_image=batch['inpaint_mask'].to(accelerator.device, dtype=weight_dtype),
+                        image=(batch['image'].to(accelerator.device, dtype=weight_dtype) + 1.0) / 2.0,
+                        height=args.height,
+                        width=args.width,
+                        guidance_scale=args.guidance_scale,
+                        ip_adapter_image=image_embeds.to(accelerator.device, dtype=weight_dtype)
+                    )[0]
+
+                    # Log generated images to wandb
+                    wandb.log({f"Generated Images step {global_step}": [wandb.Image(img) for img in images]})
+                    wandb.log({f"Generated Images with same seed step {global_step}": [wandb.Image(img) for img in same_seed_images]})
 
                 global_step += 1
+
 
                 
 def initialize_weights(model):
@@ -297,7 +311,7 @@ def main():
     unet.requires_grad_(True)
     image_encoder.requires_grad_(False)
     
-    initialize_weights(unet)
+    # initialize_weights(unet)
     # initialize_weights(image_encoder)
 
     unet.to(accelerator.device, weight_dtype)
