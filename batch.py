@@ -121,7 +121,7 @@ pipe = TryonPipeline.from_pretrained(
 )
 pipe.unet_encoder = UNet_Encoder
 
-def process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checked_crop, denoise_steps, seed):
+def process_images_as_batch(dicts, garm_imgs, garment_des_list, is_checked, is_checked_crop, denoise_steps, seed):
     openpose_model.preprocessor.body_estimation.model.to(device)
     pipe.to(device)
     pipe.unet_encoder.to(device)
@@ -129,10 +129,11 @@ def process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checke
     human_imgs = []
     masks = []
     human_imgs_orig = []
+    pose_imgs = []
 
     for i in range(len(dicts)):
         garm_img = garm_imgs[i].convert("RGB").resize((768, 1024))
-        human_img_orig = dicts[i]["background"].convert("RGB")
+        human_img_orig = dicts[i].convert("RGB")
 
         if is_checked_crop:
             width, height = human_img_orig.size
@@ -155,7 +156,7 @@ def process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checke
             mask = mask.resize((768, 1024))
         else:
             mask = pil_to_binary_mask(dicts[i]['layers'][0].convert("RGB").resize((768, 1024)))
-        
+
         mask_gray = (1 - transforms.ToTensor()(mask)) * tensor_transfrom(human_img)
         mask_gray = to_pil_image((mask_gray + 1.0) / 2.0)
 
@@ -170,11 +171,12 @@ def process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checke
         human_imgs.append(human_img)
         masks.append(mask)
         human_imgs_orig.append(human_img_orig)
+        pose_imgs.append(pose_img)  # Adding pose_img to the list
 
     with torch.no_grad():
         with torch.cuda.amp.autocast():
             with torch.no_grad():
-                prompts = ["model is wearing " + garment_des] * len(dicts)
+                prompts = [f"model is wearing "] * len(dicts)
                 negative_prompts = ["monochrome, lowres, bad anatomy, worst quality, low quality"] * len(dicts)
                 with torch.inference_mode():
                     (
@@ -190,40 +192,40 @@ def process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checke
                     )
 
                     prompt_embeds_c_list = []
-                    for garment_des in garment_des_list:
-                        prompt = "a photo of " + garment_des
-                        negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
-                        if not isinstance(prompt, List):
-                            prompt = [prompt] * 1
-                        if not isinstance(negative_prompt, List):
-                            negative_prompt = [negative_prompt] * 1
-                        with torch.inference_mode():
-                            (
-                                prompt_embeds_c,
-                                _,
-                                _,
-                                _,
-                            ) = pipe.encode_prompt(
-                                prompt,
-                                num_images_per_prompt=1,
-                                do_classifier_free_guidance=False,
-                                negative_prompt=negative_prompt,
-                            )
-                        prompt_embeds_c_list.append(prompt_embeds_c)
+                    #for garment_des in garment_des_list:
+                    prompt = ["a photo of "] * len(garment_des_list)
+                    negative_prompt = ["monochrome, lowres, bad anatomy, worst quality, low quality"] * len(garment_des_list)
+                    if not isinstance(prompt, list):
+                        prompt = [prompt] * 1
+                    if not isinstance(negative_prompt, list):
+                        negative_prompt = [negative_prompt] * 1
+                    with torch.inference_mode():
+                        (
+                            prompt_embeds_c,
+                            _,
+                            _,
+                            _,
+                        ) = pipe.encode_prompt(
+                            prompt,
+                            num_images_per_prompt=1,
+                            do_classifier_free_guidance=False,
+                            negative_prompt=negative_prompt,
+                        )
+                        #prompt_embeds_c_list.append(prompt_embeds_c)
 
-                    pose_imgs = torch.stack([tensor_transfrom(pose_img).unsqueeze(0) for pose_img in pose_imgs]).to(device, torch.float16)
-                    garm_tensors = torch.stack([tensor_transfrom(garm_img).unsqueeze(0) for garm_img in garm_imgs]).to(device, torch.float16)
+                    pose_imgs_tensors = torch.stack([tensor_transfrom(pose_img) for pose_img in pose_imgs]).to(device, torch.float16)
+                    garm_tensors = torch.stack([tensor_transfrom(garm_img) for garm_img in garm_imgs]).to(device, torch.float16)
                     generators = [torch.Generator(device).manual_seed(seed) if seed is not None else None for _ in range(len(dicts))]
                     images = pipe(
-                        prompt_embeds=torch.cat(prompt_embeds).to(device, torch.float16),
-                        negative_prompt_embeds=torch.cat(negative_prompt_embeds).to(device, torch.float16),
-                        pooled_prompt_embeds=torch.cat(pooled_prompt_embeds).to(device, torch.float16),
-                        negative_pooled_prompt_embeds=torch.cat(negative_pooled_prompt_embeds).to(device, torch.float16),
+                        prompt_embeds=prompt_embeds,  # Concatenating along the first dimension
+                        negative_prompt_embeds=negative_prompt_embeds.to(device, torch.float16),  # Concatenating along the first dimension
+                        pooled_prompt_embeds=pooled_prompt_embeds.to(device, torch.float16),  # Concatenating along the first dimension
+                        negative_pooled_prompt_embeds=negative_pooled_prompt_embeds.to(device, torch.float16),  # Concatenating along the first dimension
                         num_inference_steps=denoise_steps,
                         generator=generators,
                         strength=1.0,
-                        pose_img=pose_imgs,
-                        text_embeds_cloth=torch.cat(prompt_embeds_c_list).to(device, torch.float16),
+                        pose_img=pose_imgs_tensors,  # Pass the pose_imgs tensor here
+                        text_embeds_cloth=prompt_embeds_c.to(device, torch.float16),  # Concatenating along the first dimension
                         cloth=garm_tensors,
                         mask_image=masks,
                         image=human_imgs,
@@ -234,6 +236,11 @@ def process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checke
                     )[0]
 
     return images, masks
+
+def start_tryon_batch(dicts, garm_imgs, garment_des, is_checked, is_checked_crop, denoise_steps, seed):
+    results = process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checked_crop, denoise_steps, seed)
+    return results
+
 
 def start_tryon(dicts, garm_imgs, garment_des, is_checked, is_checked_crop, denoise_steps, seed):
     results = process_images_as_batch(dicts, garm_imgs, garment_des, is_checked, is_checked_crop, denoise_steps, seed)
