@@ -244,19 +244,3 @@ def start_tryon(dict, garm_img, garment_des, is_checked, is_checked_crop, denois
         final_result = images[0]
     return final_result, mask_gray, inference_times
 
-import runpod
-
-def chiamata_api():
-    try:
-        start_time = time.time()
-        human_img_orig = Image.open("gradio_demo/example/human/00034_00.jpg")
-        garm_img = Image.open("gradio_demo/example/cloth/09163_00.jpg")
-        out = start_tryon(human_img_orig, garm_img, "", True, False, 30, 23)
-        total_time = time.time() - start_time
-        print("--- %s seconds ---" % (total_time))
-        out[2]['total'] = round(total_time, 3)
-        return out[2]
-    except:
-        return False
-
-runpod.serverless.start({"handler": chiamata_api})  # Required
