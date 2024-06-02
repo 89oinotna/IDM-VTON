@@ -16,7 +16,7 @@ from .body import Body
 from .hand import Hand
 from .face import Face
 from annotator.util import annotator_ckpts_path
-body_model_path = "/root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/openpose/ckpts/body_pose_model.pth"
+# body_model_path = "/group_share/model/IDM-VTON/openpose/ckpts/body_pose_model.pth"
 # body_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/body_pose_model.pth"
 hand_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/hand_pose_model.pth"
 face_model_path = "https://huggingface.co/lllyasviel/Annotators/resolve/main/facenet.pth"
@@ -43,7 +43,7 @@ def draw_pose(pose, H, W, draw_body=True, draw_hand=True, draw_face=True):
 
 
 class OpenposeDetector:
-    def __init__(self):
+    def __init__(self, body_model_path):
         body_modelpath = body_model_path
         # body_modelpath = os.path.join(annotator_ckpts_path, "body_pose_model.pth")
         # hand_modelpath = os.path.join(annotator_ckpts_path, "hand_pose_model.pth")

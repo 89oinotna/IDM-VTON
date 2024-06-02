@@ -3,14 +3,17 @@ from pathlib import Path
 import sys
 
 PROJECT_ROOT = Path(__file__).absolute().parents[0].absolute()
+print("asdfasdfsdfasdfssssssssssssss", PROJECT_ROOT)
+
 sys.path.insert(0, str(PROJECT_ROOT))
+print("print(sys.path)", sys.path)
 import os
 import torch
 import numpy as np
 import cv2
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from datasets.simple_extractor_dataset import SimpleFolderDataset
+from hp_datasets.simple_extractor_dataset import SimpleFolderDataset
 from utils.transforms import transform_logits
 from tqdm import tqdm
 from PIL import Image
@@ -192,11 +195,11 @@ def onnx_inference(session, lip_session, input_dir):
     output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
     output_img.putpalette(palette)
     face_mask = torch.from_numpy((parsing_result == 11).astype(np.float32))
-    for i in range(20):
-        mimg = (parsing_result == i).astype(np.float32)
-        mimg = np.where(mimg, 255, 0)
-        mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
-        mimg.save(f'/root/kj_work/IDM-VTON/my_pre_data/p{i}.png')
+    # for i in range(20):
+    #     mimg = (parsing_result == i).astype(np.float32)
+    #     mimg = np.where(mimg, 255, 0)
+    #     mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
+    #     mimg.save(f'/root/data/try_on_data/middle/p{i}.png')
 
     return output_img, face_mask,parsing_result
 

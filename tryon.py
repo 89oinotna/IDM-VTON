@@ -44,7 +44,7 @@ from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as TryonPipeline
 
 
 class TryOn():
-    def __init__(self):
+    def __init__(self, model_path):
         self.clip_processor = CLIPImageProcessor()
         self.transform = transforms.Compose(
             [
@@ -53,7 +53,7 @@ class TryOn():
             ]
         )
         self.toTensor = transforms.ToTensor()
-        self.model_path = "/root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/"
+        self.model_path = model_path
         #/root/kj_work/IDM-VTON/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/
 
         self.vae = AutoencoderKL.from_pretrained(
@@ -184,23 +184,32 @@ class TryOn():
         )
         print(type(image[0][0]))
         return image[0][0]
+    
 
-if __name__ == "__main__":
-    img_o = Image.open('my_pre_data/img/img1.jpg')
+def tryon_func(full_body_path, clothes_path, full_body_caption, clothes_caption, idx):
+    img_o = Image.open(full_body_path)
+    
+    size = (768, 1024)
+    img_o = img_o.resize(size)
 
     from preprocess.openpose.run_openpose import OpenPose
-    model = OpenPose(0)
+    from preprocess.humanparsing.run_parsing import Parsing
+    from my_get_maks import get_img_agnostic
+    from my_get_pose import InferenceAction
+
+    body_model_path = "/group_share/model/IDM-VTON/openpose/ckpts"
+    model = OpenPose(gpu_id=0, body_model_path=body_model_path)
     # keypoints=model('/root/kj_work/IDM-VTON/my_pre_data/img/img1.jpg')
     keypoints=model(img_o.copy())
     print(keypoints)
 
-    from preprocess.humanparsing.run_parsing import Parsing
-    p = Parsing(0)
+    human_parsing_model_path = "/group_share/model/IDM-VTON/humanparsing"
+    p = Parsing(gpu_id=0, human_parsing_model_path=human_parsing_model_path)
     # img, mask,parsed = p('/root/kj_work/IDM-VTON/my_pre_data/img')
     img, mask, parsed = p(img_o.copy())
     print(parsed.shape)
 
-    from my_get_maks import get_img_agnostic
+    
     # img = Image.open('my_pre_data/img/img1.jpg')
     pose_data = np.array(keypoints['pose_keypoints_2d'])
     # pose_data = pose_data.reshape((1, -1))[0]
@@ -210,36 +219,37 @@ if __name__ == "__main__":
     # print(pose_data)
     # exit()
     agnostic = get_img_agnostic(img_o.copy(), parsed, pose_data)
-    agnostic.save('/root/data/try_on_data/middle/mask.jpg')
+    # agnostic.save('my_pre_data/mask.jpg')
     # exit()
 
     # print('1'*100)
-    TO = TryOn()
+    model_path = "/group_share/model/IDM-VTON/"
+    TO = TryOn(model_path)
     # print(2)
-    p1 = ["model is wearing a basketball clothes"]# 衣服的种类，由LLM或者数据库给出
-    p2 = ["a photo of basketball clothes"]# 衣服的种类，由LLM或者数据库给出
+    p1 = [full_body_caption]# 衣服的种类，由LLM或者数据库给出
+    p2 = [clothes_caption]# 衣服的种类，由LLM或者数据库给出
     
     # img = Image.open('my_pre_data/img/img1.jpg')
-    cloth = Image.open('/root/kj_work/IDM-VTON/my_pre_data/cloth/c1.jpg')
+    cloth = Image.open(clothes_path)
     # mask = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/mask.png')
-
-    from my_get_pose import InferenceAction
-    g_pose = InferenceAction()
+    config_path = "/root/code/BeautyMaster/beautymaster/third_party/IDM-VTON"
+    densepose_model_path = "/group_share/model/IDM-VTON/densepose"
+    g_pose = InferenceAction(config_path, densepose_model_path)
     pose = g_pose.execute(img_o.copy())
     pose = Image.fromarray(pose)
     # pose = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/pose.jpg')
     
-    # print('img:',img.split())
-    # print('cloth:',cloth.split())
-    # print('mask:',mask.split())
-    # print('pose:',pose.split())
-    # exit()
-    new = TO.tryon(p1, p2, pose,  cloth, img_o, agnostic)
+    tryon_result = TO.tryon(p1, p2, pose,  cloth, img_o, agnostic)
+
     # print(3)
-    new.save('my_pre_data/new.jpg')
+    tryon_result.save('/root/data/try_on_data/middle/new_%d.jpg'%idx)
     # print(4)
 
+    return tryon_result
 
-# python apply_net.py show configs/densepose_rcnn_R_50_FPN_s1x.yaml \
-# /root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/densepose/model_final_162be9.pkl \
-# /root/kj_work/IDM-VTON_old/my_tryon_test_data dp_segm -v
+if __name__ == "__main__":
+    full_body_path='/group_share/data_org/test_data/fullbody/real_image/v2-637c977c47e7794caa8cc80e12f1a369_r.jpg'
+    clothes_path='/group_share/data_org/DressCode/upper_body/images/048453_1.jpg'
+    full_body_caption='黑色长发、肩部长度、直发、黄皮肤、中等身材、中等身高、腰部适中、腿部中等长度、直腿、匀称型体型'
+    clothes_caption='这件黑色V领无袖修身T恤，适合四季穿着，休闲风格，面料未知。'
+    tryon_func(full_body_path, clothes_path, full_body_caption, clothes_caption, 0)

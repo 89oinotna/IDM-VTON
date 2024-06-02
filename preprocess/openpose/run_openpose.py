@@ -27,10 +27,10 @@ import pdb
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
 
 class OpenPose:
-    def __init__(self, gpu_id: int):
+    def __init__(self, gpu_id: int, body_model_path):
         self.gpu_id = gpu_id
         torch.cuda.set_device(gpu_id)
-        self.preprocessor = OpenposeDetector()
+        self.preprocessor = OpenposeDetector(body_model_path+"/body_pose_model.pth")
 
     def __call__(self, input_image, resolution=384):
         torch.cuda.set_device(self.gpu_id)

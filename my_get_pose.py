@@ -40,9 +40,9 @@ from densepose.vis.extractor import (
 )
 
 class InferenceAction():
-    def __init__(self):
-        self.cfg_path='configs/densepose_rcnn_R_50_FPN_s1x.yaml'
-        self.model='/root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/densepose/model_final_162be9.pkl'
+    def __init__(self, config_path, densepose_model_path):
+        self.cfg_path=config_path+'/configs/densepose_rcnn_R_50_FPN_s1x.yaml'
+        self.model= densepose_model_path+'/model_final_162be9.pkl'
         self.opts = []
         self.opts.append("MODEL.ROI_HEADS.SCORE_THRESH_TEST")
         self.opts.append('0.8')
