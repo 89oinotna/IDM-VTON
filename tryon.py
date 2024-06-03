@@ -242,7 +242,7 @@ def tryon_func(full_body_path, clothes_path, full_body_caption, clothes_caption,
     tryon_result = TO.tryon(p1, p2, pose,  cloth, img_o, agnostic)
 
     # print(3)
-    tryon_result.save('/root/data/try_on_data/middle/new_%d.jpg'%idx)
+    # tryon_result.save('/root/data/try_on_data/middle/new_%d.jpg'%(idx))
     # print(4)
 
     return tryon_result
