@@ -161,6 +161,15 @@ def get_img_agnostic2(img, parse, pose_data):
     
     return agnostic
 
+def get_img_agnostic3(img, parse, pose_data):
+    w, h = parse.shape[1], parse.shape[0]
+    img = Image.new("RGB", (w,h), (255, 255, 255))
+    agnostic_u = get_img_agnostic(img.copy(), parse, pose_data).convert('L')
+    agnostic_l = get_img_agnostic2(img.copy(), parse, pose_data).convert('L')
+    # agnostic_l.paste(img, None, Image.fromarray(agnostic_u, 'L'))
+    combined_image = Image.fromarray((np.array(agnostic_u) | np.array(agnostic_l)).astype(np.uint8), 'L')
+
+    return combined_image
 
 if __name__ =="__main__":
     data_path = './test'
