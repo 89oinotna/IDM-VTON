@@ -209,7 +209,7 @@ if __name__ == "__main__":
     parsed = p(img_o.copy())
     print(parsed.shape)
 
-    from my_get_maks import get_img_agnostic2
+    from my_get_maks import get_img_agnostic3
     # img = Image.open('my_pre_data/img/img1.jpg')
     pose_data = np.array(keypoints['pose_keypoints_2d'])
     # pose_data = pose_data.reshape((1, -1))[0]
@@ -218,18 +218,18 @@ if __name__ == "__main__":
     # pose_data = pose_data.reshape((-1, 2))
     # print(pose_data)
     # exit()
-    agnostic = get_img_agnostic2(img_o.copy(), parsed, pose_data)
+    agnostic = get_img_agnostic3(img_o.copy(), parsed, pose_data)
     agnostic.save('/root/kj_work/idm_output/mask.jpg')
     # exit()
 
     # print('1'*100)
     TO = TryOn()
     # print(2)
-    p1 = ["Masterpiece,best quality,model is wearing a three-quarter shorts"]# 衣服的种类，由LLM或者数据库给出
-    p2 = ["Masterpiece,best quality,a photo of three-quarter shorts"]# 衣服的种类，由LLM或者数据库给出
+    p1 = ["Masterpiece,best quality,model is wearing a Over the knee down jacket"]# 衣服的种类，由LLM或者数据库给出
+    p2 = ["Masterpiece,best quality,a photo of Over the knee down jacket"]# 衣服的种类，由LLM或者数据库给出
     
     # img = Image.open('my_pre_data/img/img1.jpg')
-    cloth = Image.open('/root/kj_work/IDM-VTON/my_pre_data/cloth/c2.jpg')
+    cloth = Image.open('/root/kj_work/IDM-VTON/my_pre_data/cloth/c3.jpg')
     # mask = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/mask.png')
 
     from my_get_pose import InferenceAction
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     # exit()
     new = TO.tryon(p1, p2, pose,  cloth, img_o, agnostic)
     # print(3)
-    new.save('/root/kj_work/idm_output/new2.jpg')
+    new.save('/root/kj_work/idm_output/new3.jpg')
     # print(4)
 
 
