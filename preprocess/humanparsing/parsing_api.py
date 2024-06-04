@@ -147,61 +147,62 @@ def onnx_inference(session, lip_session, input_dir):
             
             
             # try holefilling the clothes part
-            arm_mask = (parsing_result == 14).astype(np.float32) \
-                       + (parsing_result == 15).astype(np.float32)
-            upper_cloth_mask = (parsing_result == 4).astype(np.float32) + arm_mask 
-            # for i in range(20):
-            #     mimg = (parsing_result == i).astype(np.float32)
-            #     mimg = np.where(mimg, 255, 0)
-            #     mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
-            #     mimg.save(f'/root/kj_work/IDM-VTON/my_pre_data/p{i}.png')
+            # arm_mask = (parsing_result == 14).astype(np.float32) \
+            #            + (parsing_result == 15).astype(np.float32)
+            # upper_cloth_mask = (parsing_result == 4).astype(np.float32) + arm_mask 
+            for i in range(18):
+                mimg = (parsing_result == i).astype(np.float32)
+                mimg = np.where(mimg, 255, 0)
+                mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
+                mimg.save(f'/root/kj_work/idm_output/p{i}.png')
+    return parsing_result
             
-            # exit()
-            img = np.where(upper_cloth_mask, 255, 0)
-            dst = hole_fill(img.astype(np.uint8))
-            parsing_result_filled = dst / 255 * 4
-            parsing_result_woarm = np.where(parsing_result_filled == 4, parsing_result_filled, parsing_result)
-            # add back arm and refined hole between arm and cloth
-            refine_hole_mask = refine_hole(parsing_result_filled.astype(np.uint8), parsing_result.astype(np.uint8),
-                                           arm_mask.astype(np.uint8))
-            parsing_result = np.where(refine_hole_mask, parsing_result, parsing_result_woarm)
-            # remove padding
-            parsing_result = parsing_result[1:-1, 1:-1]
+    #         exit()
+    #         img = np.where(upper_cloth_mask, 255, 0)
+    #         dst = hole_fill(img.astype(np.uint8))
+    #         parsing_result_filled = dst / 255 * 4
+    #         parsing_result_woarm = np.where(parsing_result_filled == 4, parsing_result_filled, parsing_result)
+    #         # add back arm and refined hole between arm and cloth
+    #         refine_hole_mask = refine_hole(parsing_result_filled.astype(np.uint8), parsing_result.astype(np.uint8),
+    #                                        arm_mask.astype(np.uint8))
+    #         parsing_result = np.where(refine_hole_mask, parsing_result, parsing_result_woarm)
+    #         # remove padding
+    #         parsing_result = parsing_result[1:-1, 1:-1]
             
            
-        dataset_lip = SimpleFolderDataset(root=input_dir, input_size=[473, 473], transform=transform)
-        dataloader_lip = DataLoader(dataset_lip)
-        with torch.no_grad():
-            for _, batch in enumerate(tqdm(dataloader_lip)):
-                image, meta = batch
-                c = meta['center'].numpy()[0]
-                s = meta['scale'].numpy()[0]
-                w = meta['width'].numpy()[0]
-                h = meta['height'].numpy()[0]
+    #     dataset_lip = SimpleFolderDataset(root=input_dir, input_size=[473, 473], transform=transform)
+    #     dataloader_lip = DataLoader(dataset_lip)
+    #     with torch.no_grad():
+    #         for _, batch in enumerate(tqdm(dataloader_lip)):
+    #             image, meta = batch
+    #             c = meta['center'].numpy()[0]
+    #             s = meta['scale'].numpy()[0]
+    #             w = meta['width'].numpy()[0]
+    #             h = meta['height'].numpy()[0]
 
-                output_lip = lip_session.run(None, {"input.1": image.numpy().astype(np.float32)})
-                upsample = torch.nn.Upsample(size=[473, 473], mode='bilinear', align_corners=True)
-                upsample_output_lip = upsample(torch.from_numpy(output_lip[1][0]).unsqueeze(0))
-                upsample_output_lip = upsample_output_lip.squeeze()
-                upsample_output_lip = upsample_output_lip.permute(1, 2, 0)  # CHW -> HWC
-                logits_result_lip = transform_logits(upsample_output_lip.data.cpu().numpy(), c, s, w, h,
-                                                     input_size=[473, 473])
-                parsing_result_lip = np.argmax(logits_result_lip, axis=2)
-    # add neck parsing result
-    neck_mask = np.logical_and(np.logical_not((parsing_result_lip == 13).astype(np.float32)),
-                               (parsing_result == 11).astype(np.float32))
-    parsing_result = np.where(neck_mask, 18, parsing_result)
-    palette = get_palette(19)
-    output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
-    output_img.putpalette(palette)
-    face_mask = torch.from_numpy((parsing_result == 11).astype(np.float32))
-    # for i in range(20):
-    #     mimg = (parsing_result == i).astype(np.float32)
-    #     mimg = np.where(mimg, 255, 0)
-    #     mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
-    #     mimg.save(f'/root/data/try_on_data/middle/p{i}.png')
+    #             output_lip = lip_session.run(None, {"input.1": image.numpy().astype(np.float32)})
+    #             upsample = torch.nn.Upsample(size=[473, 473], mode='bilinear', align_corners=True)
+    #             upsample_output_lip = upsample(torch.from_numpy(output_lip[1][0]).unsqueeze(0))
+    #             upsample_output_lip = upsample_output_lip.squeeze()
+    #             upsample_output_lip = upsample_output_lip.permute(1, 2, 0)  # CHW -> HWC
+    #             logits_result_lip = transform_logits(upsample_output_lip.data.cpu().numpy(), c, s, w, h,
+    #                                                  input_size=[473, 473])
+    #             parsing_result_lip = np.argmax(logits_result_lip, axis=2)
+    # # add neck parsing result
+    # neck_mask = np.logical_and(np.logical_not((parsing_result_lip == 13).astype(np.float32)),
+    #                            (parsing_result == 11).astype(np.float32))
+    # parsing_result = np.where(neck_mask, 18, parsing_result)
+    # palette = get_palette(19)
+    # output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
+    # output_img.putpalette(palette)
+    # face_mask = torch.from_numpy((parsing_result == 11).astype(np.float32))
+    # # for i in range(20):
+    # #     mimg = (parsing_result == i).astype(np.float32)
+    # #     mimg = np.where(mimg, 255, 0)
+    # #     mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
+    # #     mimg.save(f'/root/data/try_on_data/middle/p{i}.png')
 
-    return output_img, face_mask,parsing_result
+    # return output_img, face_mask,parsing_result
 
 
 
