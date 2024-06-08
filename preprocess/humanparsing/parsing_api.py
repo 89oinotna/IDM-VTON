@@ -3,10 +3,10 @@ from pathlib import Path
 import sys
 
 PROJECT_ROOT = Path(__file__).absolute().parents[0].absolute()
-print("asdfasdfsdfasdfssssssssssssss", PROJECT_ROOT)
+# print("asdfasdfsdfasdfssssssssssssss", PROJECT_ROOT)
 
 sys.path.insert(0, str(PROJECT_ROOT))
-print("print(sys.path)", sys.path)
+# print("print(sys.path)", sys.path)
 import os
 import torch
 import numpy as np
