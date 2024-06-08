@@ -150,11 +150,11 @@ def onnx_inference(session, lip_session, input_dir):
             # arm_mask = (parsing_result == 14).astype(np.float32) \
             #            + (parsing_result == 15).astype(np.float32)
             # upper_cloth_mask = (parsing_result == 4).astype(np.float32) + arm_mask 
-            for i in range(18):
-                mimg = (parsing_result == i).astype(np.float32)
-                mimg = np.where(mimg, 255, 0)
-                mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
-                mimg.save(f'/root/kj_work/idm_output/p{i}.png')
+            # for i in range(18):
+            #     mimg = (parsing_result == i).astype(np.float32)
+            #     mimg = np.where(mimg, 255, 0)
+            #     mimg = Image.fromarray(np.asarray(mimg, dtype=np.uint8))
+                # mimg.save(f'/root/kj_work/idm_output/p{i}.png')
     return parsing_result
             
     #         exit()
