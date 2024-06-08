@@ -32,7 +32,7 @@ from accelerate.utils import ProjectConfiguration, set_seed
 from packaging import version
 from torchvision import transforms
 import diffusers
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, StableDiffusionXLControlNetInpaintPipeline
+from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, StableDiffusionXLControlNetInpaintPipeline,DPMSolverMultistepScheduler
 from transformers import AutoTokenizer, PretrainedConfig,CLIPImageProcessor, CLIPVisionModelWithProjection,CLIPTextModelWithProjection, CLIPTextModel, CLIPTokenizer
 
 from diffusers.utils.import_utils import is_xformers_available
@@ -53,7 +53,7 @@ class TryOn():
             ]
         )
         self.toTensor = transforms.ToTensor()
-        self.model_path = "/root/kj_work/IDM-VTON_old/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/"
+        self.model_path = "/group_share/model/IDM-VTON/"
         #/root/kj_work/IDM-VTON/local_directory/models--yisol--IDM-VTON/snapshots/585a32e74aee241cbc0d0cc3ab21392ca58c916a/
 
         self.vae = AutoencoderKL.from_pretrained(
@@ -130,10 +130,15 @@ class TryOn():
             torch_dtype = torch.float16,
         ).to('cuda')
         self.pipe.unet_encoder = self.UNet_Encoder
+        # self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+        #     self.pipe.scheduler.config,
+        #     algorithm_type="sde-dpmsolver++",
+        #     # use_karras_sigmas=True,
+        # )
         # print('2'*100)
 
     def tryon(self, p1, p2, pose_img, cloth_img, img, mask):
-        negative_prompt = "monochrome, lowre, bad anatomy, worsr quality, low quality"
+        negative_prompt = "monochrome, lowre, bad anatomy, worsr quality, low quality, blurred, low resolution"
         
         (
             prompt_embeds,
@@ -165,6 +170,8 @@ class TryOn():
         # print(image_embeds.shape)
         # exit()
         generator = torch.Generator(self.pipe.device).manual_seed(42)
+        # self.pipe.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)
+        # self.pipe.set_ip_adapter_scale(0.4)
         image = self.pipe(
             prompt_embeds = prompt_embeds,
             negative_prompt_embeds = negative_prompt_embeds,
@@ -181,6 +188,8 @@ class TryOn():
             width = 768,
             guidance_scale = 2.0,
             ip_adapter_image = torch.unsqueeze(image_embeds,0),
+            generator=generator
+            # clip_skip=2,
         )
         # print(type(image[0][0]))
         return image[0][0]
@@ -189,18 +198,18 @@ if __name__ == "__main__":
     img_o = Image.open('my_pre_data/img/img1.jpg')
 
     from preprocess.openpose.run_openpose import OpenPose
-    model = OpenPose(0)
+    model = OpenPose(0,'/group_share/model/IDM-VTON/openpose/ckpts/')
     # keypoints=model('/root/kj_work/IDM-VTON/my_pre_data/img/img1.jpg')
     keypoints=model(img_o.copy())
     # print(keypoints)
 
     from preprocess.humanparsing.run_parsing import Parsing
-    p = Parsing(0)
+    p = Parsing(0,'/group_share/model/IDM-VTON/humanparsing')
     # img, mask,parsed = p('/root/kj_work/IDM-VTON/my_pre_data/img')
-    img, mask, parsed = p(img_o.copy())
-    # print(parsed.shape)
+    parsed = p(img_o.copy())
+    print(parsed.shape)
 
-    from my_get_maks import get_img_agnostic
+    from my_get_maks import get_img_agnostic3
     # img = Image.open('my_pre_data/img/img1.jpg')
     pose_data = np.array(keypoints['pose_keypoints_2d'])
     # pose_data = pose_data.reshape((1, -1))[0]
@@ -209,22 +218,22 @@ if __name__ == "__main__":
     # pose_data = pose_data.reshape((-1, 2))
     # print(pose_data)
     # exit()
-    agnostic = get_img_agnostic(img_o.copy(), parsed, pose_data)
-    agnostic.save('/root/data/try_on_data/middle/mask.jpg')
+    agnostic = get_img_agnostic3(img_o.copy(), parsed, pose_data)
+    agnostic.save('/root/kj_work/idm_output/mask.jpg')
     # exit()
 
     # print('1'*100)
     TO = TryOn()
     # print(2)
-    p1 = ["model is wearing a basketball clothes"]# 衣服的种类，由LLM或者数据库给出
-    p2 = ["a photo of basketball clothes"]# 衣服的种类，由LLM或者数据库给出
+    p1 = ["Masterpiece,best quality,model is wearing a Over the knee down jacket"]# 衣服的种类，由LLM或者数据库给出
+    p2 = ["Masterpiece,best quality,a photo of Over the knee down jacket"]# 衣服的种类，由LLM或者数据库给出
     
     # img = Image.open('my_pre_data/img/img1.jpg')
-    cloth = Image.open('/root/kj_work/IDM-VTON/my_pre_data/cloth/c1.jpg')
+    cloth = Image.open('/root/kj_work/IDM-VTON/my_pre_data/cloth/c3.jpg')
     # mask = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/mask.png')
 
     from my_get_pose import InferenceAction
-    g_pose = InferenceAction()
+    g_pose = InferenceAction('/root/kj_work/IDM-VTON','/group_share/model/IDM-VTON/densepose')
     pose = g_pose.execute(img_o.copy())
     pose = Image.fromarray(pose)
     # pose = Image.open('/root/kj_work/IDM-VTON_old/my_tryon_test_data/pose.jpg')
@@ -236,7 +245,7 @@ if __name__ == "__main__":
     # exit()
     new = TO.tryon(p1, p2, pose,  cloth, img_o, agnostic)
     # print(3)
-    new.save('my_pre_data/new.jpg')
+    new.save('/root/kj_work/idm_output/new3.jpg')
     # print(4)
 
 
