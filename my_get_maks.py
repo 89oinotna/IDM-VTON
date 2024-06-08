@@ -16,7 +16,7 @@ def get_img_agnostic(img, parse, pose_data):
                     # (parse_array == 18).astype(np.float32) +
                     # (parse_array == 19).astype(np.float32))
     # print(img.size)
-    print(parse.shape)
+    # print(parse.shape)
     w, h = parse.shape[1], parse.shape[0]
     # img = img.resize((w,h))
     img = Image.new("RGB", (w,h), (0, 0, 0))

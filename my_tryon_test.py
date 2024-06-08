@@ -106,7 +106,7 @@ class TryOn():
             subfolder = "scheduler"
         )
 
-        print('1'*100)
+        # print('1'*100)
         self.unet.requires_grad_(False)
         self.vae.requires_grad_(False)
         self.image_encoder.requires_grad_(False)
@@ -130,7 +130,7 @@ class TryOn():
             torch_dtype = torch.float16,
         ).to('cuda')
         self.pipe.unet_encoder = self.UNet_Encoder
-        print('2'*100)
+        # print('2'*100)
 
     def tryon(self, p1, p2, pose_img, cloth_img, img, mask):
         negative_prompt = "monochrome, lowre, bad anatomy, worsr quality, low quality"
@@ -162,7 +162,7 @@ class TryOn():
             img_emb_list.append(_cloth[i])
         image_embeds = torch.cat(img_emb_list,dim=0)
         # pose=self.transform(pose_img).shape
-        print(image_embeds.shape)
+        # print(image_embeds.shape)
         # exit()
         generator = torch.Generator(self.pipe.device).manual_seed(42)
         image = self.pipe(
@@ -182,7 +182,7 @@ class TryOn():
             guidance_scale = 2.0,
             ip_adapter_image = torch.unsqueeze(image_embeds,0),
         )
-        print(type(image[0][0]))
+        # print(type(image[0][0]))
         return image[0][0]
 
 if __name__ == "__main__":
@@ -192,13 +192,13 @@ if __name__ == "__main__":
     model = OpenPose(0)
     # keypoints=model('/root/kj_work/IDM-VTON/my_pre_data/img/img1.jpg')
     keypoints=model(img_o.copy())
-    print(keypoints)
+    # print(keypoints)
 
     from preprocess.humanparsing.run_parsing import Parsing
     p = Parsing(0)
     # img, mask,parsed = p('/root/kj_work/IDM-VTON/my_pre_data/img')
     img, mask, parsed = p(img_o.copy())
-    print(parsed.shape)
+    # print(parsed.shape)
 
     from my_get_maks import get_img_agnostic
     # img = Image.open('my_pre_data/img/img1.jpg')
